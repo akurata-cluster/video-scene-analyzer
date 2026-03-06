@@ -13,7 +13,12 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "scenedetect>=0.6.3",
-    "openai>=1.14.0"
+    "torch~=2.8.0",
+    "torch-xla~=2.8.0",
+    "transformers>=4.45.0",
+    "accelerate",
+    "qwen-vl-utils",
+    "torchvision"
 ]
 
 [project.scripts]

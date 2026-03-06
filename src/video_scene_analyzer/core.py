@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 class VideoAnalyzer:
     def __init__(
         self,
-        vision_base_url: str = "http://localhost:8000/v1",
-        vision_api_key: str = "dummy",
         vision_model: str = "huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated",
         context_window: int = 3,
         scene_threshold: float = 27.0
@@ -21,10 +19,8 @@ class VideoAnalyzer:
         self.context_window = context_window
         self.scene_threshold = scene_threshold
         
-        logger.info(f"Initializing OmniProcessor with model: {vision_model} at {vision_base_url}")
+        logger.info(f"Initializing OmniProcessor with model: {vision_model}")
         self.omni_proc = OmniProcessor(
-            base_url=vision_base_url,
-            api_key=vision_api_key,
             model_name=vision_model
         )
 

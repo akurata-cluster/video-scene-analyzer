@@ -5,9 +5,7 @@ from .core import VideoAnalyzer
 def main():
     parser = argparse.ArgumentParser(description="Analyze videos into text transcripts and event logs.")
     parser.add_argument("video_path", help="Path to the input video file")
-    parser.add_argument("--vision-url", default="http://localhost:8000/v1", help="OpenAI-compatible vision API base URL")
     parser.add_argument("--vision-model", default="huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated", help="Omni LLM model name")
-    parser.add_argument("--vision-api-key", default="dummy", help="API key for vision endpoint")
     parser.add_argument("--context-window", type=int, default=3, help="Number of previous scene descriptions to include as context")
     parser.add_argument("--scene-threshold", type=float, default=27.0, help="PySceneDetect content threshold (default: 27.0)")
     parser.add_argument("--output-transcript", default="transcript.txt", help="Path to save the dialogue transcript")
@@ -16,8 +14,6 @@ def main():
     args = parser.parse_args()
 
     analyzer = VideoAnalyzer(
-        vision_base_url=args.vision_url,
-        vision_api_key=args.vision_api_key,
         vision_model=args.vision_model,
         context_window=args.context_window,
         scene_threshold=args.scene_threshold

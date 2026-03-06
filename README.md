@@ -7,7 +7,8 @@ Video Scene Analyzer is a Python application designed to process videos into tex
 The pipeline consists of the following components:
 
 1. **Scene Detection**: Uses `PySceneDetect` to split the video into meaningful, physical, scene-based chunks. This avoids arbitrary slicing, providing natural context boundaries.
-2. **Omni Processing**: Each physical chunk is passed directly to the vision/Omni LLM (`huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated`) via an OpenAI-compatible API endpoint.
+2. **Local Omni Processing on TPU**: Each physical chunk is passed directly to the local vision/Omni LLM (`huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated`).
+   - **Quantization for TPU**: The pipeline natively supports fitting a 30B parameter model (~60GB at `bfloat16`) onto a single 32GB v6e-1 TPU chip. It utilizes `torch_xla` 2.8.0 native weight-only INT8 quantization applied directly on the CPU before shifting the optimized model to the TPU.
    - **Unified Extraction**: A single prompt asks the model to output BOTH the dialogue transcription and the visual event log for the chunk in a structured JSON response.
    - **Contextual Continuity**: The processor passes the descriptions of previous scenes as context to maintain continuity.
 3. **Output Artifacts**: Finally, the analyzer produces two main text files:
@@ -21,11 +22,11 @@ The pipeline consists of the following components:
   - `cli.py`: Command-line interface entry point.
   - `core.py`: The main orchestrator (`VideoAnalyzer`) that ties the components together.
   - `scene_processor.py`: Wrapper for `PySceneDetect` and video chunk cutting.
-  - `omni_processor.py`: Unified API client logic for transcription and vision analysis via Omni models.
+  - `omni_processor.py`: Direct TPU-accelerated local inference client utilizing `transformers` and `torch_xla`.
 
 ## Installation
 
-This project uses `pyproject.toml` for modern dependency management.
+This project uses `pyproject.toml` for modern dependency management. You must install the `torch_xla` ecosystem to run this on Google Cloud TPUs.
 
 ```bash
 # Clone the repository
@@ -42,18 +43,22 @@ pip install -e .
 
 ### System Requirements
 
-You must have `ffmpeg` installed on your system to extract and cut the video chunks.
-
-- **Ubuntu/Debian:** `sudo apt install ffmpeg`
-- **macOS:** `brew install ffmpeg`
+- **FFmpeg:** You must have `ffmpeg` installed on your system to extract and cut the video chunks.
+  - **Ubuntu/Debian:** `sudo apt install ffmpeg`
+- **Google Cloud TPU:** A single v6e-1 TPU is sufficient. Make sure to configure the XLA environment correctly.
 
 ## Usage
 
-Once installed, you can use the `video-scene-analyzer` command-line tool.
+Set up the proper environment variable so `torch_xla` recognizes your TPU device:
+
+```bash
+export PJRT_DEVICE=TPU
+```
+
+Once installed and the environment is configured, you can run the tool:
 
 ```bash
 video-scene-analyzer path/to/video.mp4 \
-  --vision-url http://localhost:8000/v1 \
   --vision-model huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated \
   --context-window 3 \
   --output-transcript transcript.txt \
@@ -63,9 +68,7 @@ video-scene-analyzer path/to/video.mp4 \
 ### Options
 
 - `video_path`: (Required) Path to the input video file.
-- `--vision-url`: The OpenAI-compatible API base URL. Default: `http://localhost:8000/v1`.
 - `--vision-model`: The name of the Omni model to target. Default: `huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated`.
-- `--vision-api-key`: API key for the endpoint (if required by your provider). Default: `dummy`.
 - `--context-window`: Number of previous scene descriptions to include as context. Default: `3`.
 - `--scene-threshold`: Content detection threshold for PySceneDetect. Default: `27.0`.
 - `--output-transcript`: Path to save the dialogue transcript. Default: `transcript.txt`.
