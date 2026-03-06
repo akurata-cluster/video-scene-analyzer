@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-scene-analyzer"
+version = "0.1.0"
+description = "A tool to process videos into text transcripts and event logs using PySceneDetect, Whisper, and Vision LLMs."
+readme = "README.md"
+authors = [
+    { name = "Akurata Cluster", email = "info@akurata-cluster.org" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "scenedetect[opencv]>=0.6.3",
+    "opencv-python>=4.8.0",
+    "faster-whisper>=1.0.1",
+    "openai>=1.14.0",
+    "ffmpeg-python>=0.2.0"
+]
+
+[project.scripts]
+video-scene-analyzer = "video_scene_analyzer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
