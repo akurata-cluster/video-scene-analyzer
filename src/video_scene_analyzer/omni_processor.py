@@ -1,31 +1,24 @@
 import os
 import json
 import torch
-import torch_xla.core.xla_model as xm
-from transformers import AutoProcessor, Qwen2VLForConditionalGeneration, BitsAndBytesConfig
+from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 from qwen_vl_utils import process_vision_info
 from typing import Dict, Any, List
 
 class OmniProcessor:
     def __init__(self, model_name: str):
         self.model_name = model_name
-        self.device = xm.xla_device()
         
         print(f"Loading processor for {self.model_name}...")
         self.processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True)
         
-        print(f"Loading model {self.model_name} with BitsAndBytes INT8 quantization...")
-        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+        print(f"Loading model {self.model_name} on CUDA (device_map='auto')...")
         self.model = Qwen2VLForConditionalGeneration.from_pretrained(
             self.model_name,
             torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True,
-            quantization_config=quantization_config,
+            device_map="auto",
             trust_remote_code=True
         )
-        
-        print("Moving quantized model to TPU...")
-        self.model = self.model.to(self.device)
         self.model.eval()
 
     def process_chunk(self, chunk_path: str, context: List[str]) -> Dict[str, Any]:
@@ -74,8 +67,8 @@ class OmniProcessor:
                 return_tensors="pt"
             )
             
-            # Move inputs to TPU device
-            inputs = inputs.to(self.device)
+            # Move inputs to CUDA device
+            inputs = inputs.to("cuda")
             
             with torch.no_grad():
                 generated_ids = self.model.generate(**inputs, max_new_tokens=2048)
