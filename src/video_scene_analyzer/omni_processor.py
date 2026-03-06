@@ -2,8 +2,7 @@ import os
 import json
 import torch
 import torch_xla.core.xla_model as xm
-from torch_xla.experimental import quantization
-from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from transformers import AutoProcessor, Qwen2VLForConditionalGeneration, BitsAndBytesConfig
 from qwen_vl_utils import process_vision_info
 from typing import Dict, Any, List
 
@@ -15,16 +14,15 @@ class OmniProcessor:
         print(f"Loading processor for {self.model_name}...")
         self.processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True)
         
-        print(f"Loading model {self.model_name} on CPU...")
+        print(f"Loading model {self.model_name} with BitsAndBytes INT8 quantization...")
+        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
         self.model = Qwen2VLForConditionalGeneration.from_pretrained(
             self.model_name,
             torch_dtype=torch.bfloat16,
             low_cpu_mem_usage=True,
+            quantization_config=quantization_config,
             trust_remote_code=True
         )
-        
-        print("Applying natively supported torch_xla INT8 quantization to fit in 32GB TPU...")
-        quantization.quantize_(self.model, quant_type=quantization.QuantType.INT8)
         
         print("Moving quantized model to TPU...")
         self.model = self.model.to(self.device)
