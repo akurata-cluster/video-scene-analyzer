@@ -1,11 +1,10 @@
 import json
 import logging
+import os
 from typing import Dict, List, Any
-import time
 
 from .scene_processor import detect_scenes
-from .audio_processor import AudioProcessor
-from .vision_processor import VisionProcessor
+from .omni_processor import OmniProcessor
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -13,7 +12,6 @@ logger = logging.getLogger(__name__)
 class VideoAnalyzer:
     def __init__(
         self,
-        whisper_model: str = "base",
         vision_base_url: str = "http://localhost:8000/v1",
         vision_api_key: str = "dummy",
         vision_model: str = "huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated",
@@ -23,11 +21,8 @@ class VideoAnalyzer:
         self.context_window = context_window
         self.scene_threshold = scene_threshold
         
-        logger.info(f"Initializing AudioProcessor with model: {whisper_model}")
-        self.audio_proc = AudioProcessor(model_size=whisper_model)
-        
-        logger.info(f"Initializing VisionProcessor with model: {vision_model} at {vision_base_url}")
-        self.vision_proc = VisionProcessor(
+        logger.info(f"Initializing OmniProcessor with model: {vision_model} at {vision_base_url}")
+        self.omni_proc = OmniProcessor(
             base_url=vision_base_url,
             api_key=vision_api_key,
             model_name=vision_model
@@ -37,8 +32,8 @@ class VideoAnalyzer:
         """Main analysis loop."""
         logger.info(f"Starting analysis for video: {video_path}")
         
-        # 1. Detect Scenes
-        logger.info("Detecting scenes...")
+        # 1. Detect Scenes & Cut Chunks
+        logger.info("Detecting scenes and cutting chunks...")
         scenes = detect_scenes(video_path, self.scene_threshold)
         logger.info(f"Detected {len(scenes)} scenes.")
 
@@ -47,17 +42,21 @@ class VideoAnalyzer:
         event_entries = []
         vision_context = []
 
-        for idx, (start_time, end_time) in enumerate(scenes):
+        for idx, (start_time, end_time, chunk_path) in enumerate(scenes):
             logger.info(f"Processing scene {idx + 1}/{len(scenes)} [{start_time:.2f}s - {end_time:.2f}s]")
             
-            # Audio Processing
-            transcript_text = self.audio_proc.transcribe_chunk(video_path, start_time, end_time)
+            # Send chunk to Omni model
+            result = self.omni_proc.process_chunk(chunk_path, context=vision_context)
             
-            # Vision Processing
-            # Send the previous N descriptions as context to the vision model
-            scene_desc = self.vision_proc.describe_scene(
-                video_path, start_time, end_time, context=vision_context
-            )
+            # Clean up the physical chunk
+            if os.path.exists(chunk_path):
+                try:
+                    os.remove(chunk_path)
+                except Exception as e:
+                    logger.warning(f"Could not remove chunk file {chunk_path}: {e}")
+            
+            transcript_text = result.get("transcription", "")
+            scene_desc = result.get("event_log", "")
             
             # Update context
             vision_context.append(scene_desc)

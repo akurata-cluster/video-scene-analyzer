@@ -1,12 +1,13 @@
 import os
+import tempfile
 from typing import List, Tuple
 from scenedetect import detect, ContentDetector, SceneManager, open_video
-from scenedetect.frame_timecode import FrameTimecode
+from scenedetect.video_splitter import split_video_ffmpeg
 
-def detect_scenes(video_path: str, threshold: float = 27.0) -> List[Tuple[float, float]]:
+def detect_scenes(video_path: str, threshold: float = 27.0) -> List[Tuple[float, float, str]]:
     """
-    Detects scenes in a video using ContentDetector.
-    Returns a list of tuples (start_time_sec, end_time_sec).
+    Detects scenes in a video using ContentDetector and splits them into physical chunks.
+    Returns a list of tuples (start_time_sec, end_time_sec, chunk_file_path).
     """
     video = open_video(video_path)
     scene_manager = SceneManager()
@@ -14,15 +15,21 @@ def detect_scenes(video_path: str, threshold: float = 27.0) -> List[Tuple[float,
     scene_manager.detect_scenes(video)
     scene_list = scene_manager.get_scene_list()
     
-    scenes_sec = []
     if not scene_list:
         # If no scenes detected, treat the whole video as one scene
-        scenes_sec.append((0.0, video.duration.get_seconds()))
-        return scenes_sec
+        scene_list = [(video.base_timecode, video.duration)]
         
-    for scene in scene_list:
+    temp_dir = tempfile.mkdtemp(prefix="scene_chunks_")
+    output_template = os.path.join(temp_dir, "chunk_$SCENE_NUMBER.mp4")
+    
+    # Use split_video_ffmpeg to cut the video
+    split_video_ffmpeg(video_path, scene_list, output_file_template=output_template, show_progress=False)
+    
+    scenes_info = []
+    for i, scene in enumerate(scene_list):
         start_time = scene[0].get_seconds()
         end_time = scene[1].get_seconds()
-        scenes_sec.append((start_time, end_time))
+        chunk_path = os.path.join(temp_dir, f"chunk_{i+1:03d}.mp4")
+        scenes_info.append((start_time, end_time, chunk_path))
         
-    return scenes_sec
+    return scenes_info
