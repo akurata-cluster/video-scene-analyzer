@@ -1,25 +1,19 @@
 import os
 import json
-import torch
-from transformers import AutoProcessor, AutoModelForCausalLM
-from qwen_vl_utils import process_vision_info
 from typing import Dict, Any, List
+from vllm import LLM, SamplingParams
 
 class OmniProcessor:
     def __init__(self, model_name: str):
         self.model_name = model_name
         
-        print(f"Loading processor for {self.model_name}...")
-        self.processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True, use_fast=False)
-        
-        print(f"Loading model {self.model_name} on CUDA (device_map='auto')...")
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            trust_remote_code=True
+        print(f"Loading model {self.model_name} with vLLM...")
+        self.model = LLM(
+            model=self.model_name,
+            trust_remote_code=True,
+            limit_mm_per_prompt={"video": 1}
         )
-        self.model.eval()
+        self.sampling_params = SamplingParams(max_tokens=2048, temperature=0.0)
 
     def process_chunk(self, chunk_path: str, context: List[str]) -> Dict[str, Any]:
         """
@@ -40,7 +34,7 @@ class OmniProcessor:
         
         prompt += "\nOutput the JSON with 'transcription' and 'event_log'."
         
-        # Use Qwen2-VL message format
+        # Use Qwen2-VL message format supported natively by vLLM Chat Completion API
         messages = [
             {
                 "role": "system",
@@ -56,30 +50,12 @@ class OmniProcessor:
         ]
         
         try:
-            text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            image_inputs, video_inputs = process_vision_info(messages)
-            
-            inputs = self.processor(
-                text=[text],
-                images=image_inputs,
-                videos=video_inputs,
-                padding=True,
-                return_tensors="pt"
+            outputs = self.model.chat(
+                messages=messages,
+                sampling_params=self.sampling_params
             )
             
-            # Move inputs to CUDA device
-            inputs = inputs.to("cuda")
-            
-            with torch.no_grad():
-                generated_ids = self.model.generate(**inputs, max_new_tokens=2048)
-                
-            generated_ids_trimmed = [
-                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-            ]
-            
-            content = self.processor.batch_decode(
-                generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-            )[0]
+            content = outputs[0].outputs[0].text
             
             # Clean up JSON
             content = content.strip()

@@ -8,7 +8,7 @@ The pipeline consists of the following components:
 
 1. **Scene Detection**: Uses `PySceneDetect` to split the video into meaningful, physical, scene-based chunks. This avoids arbitrary slicing, providing natural context boundaries.
 2. **Local Omni Processing on NVIDIA GPU**: Each physical chunk is passed directly to the local vision/Omni LLM (`huihui-ai/Huihui-Qwen3-Omni-30B-A3B-Instruct-abliterated`).
-   - **GPU Acceleration**: The pipeline natively supports running large models efficiently using `device_map="auto"` and `torch.bfloat16`, capable of fitting a 30B parameter model natively onto high-VRAM NVIDIA GPUs (like A100 or H100 80GB).
+   - **GPU Acceleration**: The pipeline natively supports running large models efficiently using the high-throughput `vLLM` backend, capable of fitting a 30B parameter model natively onto high-VRAM NVIDIA GPUs (like A100 or H100 80GB).
    - **Unified Extraction**: A single prompt asks the model to output BOTH the dialogue transcription and the visual event log for the chunk in a structured JSON response.
    - **Contextual Continuity**: The processor passes the descriptions of previous scenes as context to maintain continuity.
 3. **Output Artifacts**: Finally, the analyzer produces two main text files:
@@ -22,7 +22,7 @@ The pipeline consists of the following components:
   - `cli.py`: Command-line interface entry point.
   - `core.py`: The main orchestrator (`VideoAnalyzer`) that ties the components together.
   - `scene_processor.py`: Wrapper for `PySceneDetect` and video chunk cutting.
-  - `omni_processor.py`: Direct CUDA-accelerated local inference client utilizing `transformers` and `device_map="auto"`.
+  - `omni_processor.py`: Direct CUDA-accelerated local inference client utilizing the high-throughput `vLLM` backend.
 
 ## Installation
 

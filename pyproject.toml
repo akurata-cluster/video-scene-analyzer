@@ -15,7 +15,7 @@ dependencies = [
     "scenedetect>=0.6.3",
     "torch>=2.0.0",
     "transformers>=4.45.0",
-    "accelerate",
+    "vllm>=0.5.0",
     "qwen-vl-utils",
     "torchvision"
 ]
