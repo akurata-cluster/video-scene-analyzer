@@ -1,7 +1,7 @@
 import os
 import json
 import torch
-from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from transformers import AutoProcessor, AutoModelForCausalLM
 from qwen_vl_utils import process_vision_info
 from typing import Dict, Any, List
 
@@ -10,10 +10,10 @@ class OmniProcessor:
         self.model_name = model_name
         
         print(f"Loading processor for {self.model_name}...")
-        self.processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True)
+        self.processor = AutoProcessor.from_pretrained(self.model_name, trust_remote_code=True, use_fast=False)
         
         print(f"Loading model {self.model_name} on CUDA (device_map='auto')...")
-        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             torch_dtype=torch.bfloat16,
             device_map="auto",
